@@ -14,14 +14,14 @@ enum Command {
 
 class tracee {
     public:
-        tracee(pid_t child);
+        bool load(std::string path);
         bool parse(std::string line);
         void interact();
-        bool trace();
     private:
         pid_t child;
         int wait_status;
         std::vector<std::string> args;
+        bool is_loaded = false;
         bool is_running = false;
         enum Command command;
 };

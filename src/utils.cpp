@@ -2,6 +2,7 @@
 #include <string>
 #include <unistd.h>
 #include <iostream>
+// #include <stdio.h>
 
 extern char *optarg;
 extern int optind;
@@ -34,7 +35,7 @@ bool file_exist(std::string &path)
 }
 
 void errquit(std::string message)
-{
-    std::cerr << message << std::endl;
+{   
+    perror(message.c_str());
     exit(-1);
 }
