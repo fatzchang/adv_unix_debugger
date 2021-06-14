@@ -39,3 +39,8 @@ void errquit(std::string message)
     perror(message.c_str());
     exit(-1);
 }
+
+void ddebug_msg(std::string message)
+{
+    std::cout << "**" << message << std::endl;
+}

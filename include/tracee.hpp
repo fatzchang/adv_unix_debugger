@@ -24,6 +24,25 @@ class tracee {
         bool is_loaded = false;
         bool is_running = false;
         enum Command command;
+
+        // command handler
+        void _break(unsigned long addr); //
+        void _cont(); //
+        void _delete(int breakpoint_id); //
+        void _disasm(unsigned long addr); //
+        // void _dump(unsigned long addr); 
+        void _dump(unsigned long addr, int length); //
+        void _exit();
+        void _get(std::string reg_name);
+        void _getregs();
+        void _help();
+        void _list();
+        void _load(std::string path);
+        void _run(); 
+        void _vmmap();
+        void _set(std::string reg_name, long value);
+        void _si();
+        void _start();
 };
 
 

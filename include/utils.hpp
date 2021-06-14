@@ -7,5 +7,6 @@
 void parse_args(int argc, char *argv[], std::string &path, std::ifstream &script);
 bool file_exist(std::string &path);
 void errquit(std::string message);
+void ddebug_msg(std::string message);
 
 #endif

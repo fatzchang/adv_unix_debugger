@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
         if (!program.load(path)) errquit("cannot load program");
     }
 
-    // // interactive with user
+    // // interact with user
     while (std::getline(std::cin, line)) {
         if (!program.parse(line)) errquit("command failed");
 

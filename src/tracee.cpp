@@ -8,6 +8,18 @@
 #include "utils.hpp"
 #include <sys/user.h>
 
+#define RUN_CHECK \
+    if (!this->is_running) { \
+        ddebug_msg("need to run first"); \
+        return; \
+    }
+
+#define LOAD_CHECK \
+    if (!this->is_loaded) { \
+        ddebug_msg("need to load first"); \
+        return; \
+    }
+
 std::map<std::string, enum Command> command_map = {
     {"break", BREAK}, {"cont", CONT}, {"delete", DELETE}, {"disasm", DISASM}, {"dump", DUMP},
     {"exit", EXIT}, {"get", GET}, {"getregs", GETREGS}, {"help", HELP}, {"list", LIST},
@@ -67,22 +79,205 @@ bool tracee::parse(std::string line)
 
 void tracee::interact()
 {
+    // check the status first
+    if (this->is_loaded && !WIFSTOPPED(this->wait_status)) {
+        return;
+    }
+
     switch (this->command)
     {
-    case BREAK:
-        /* code */
-        if (this->is_running) {
-            // replace instr byte with cc
+        case BREAK:
+        {
+            std::string addr_str = this->args.at(0);
+            unsigned long addr;
+            addr = std::stoul(addr_str);
+            this->_break(addr);
+            break;
         }
-        break;
-    case START:
-        if (this->is_loaded) {
+        case CONT:
+        {
+            this->_cont();
+            break;
+        }
+        case DELETE:
+        {
+            std::string breakpoint_id_str = this->args.at(0);
+            int breakpoint_id = std::stoi(breakpoint_id_str);
+            this->_delete(breakpoint_id);
+            break;
+        }
+        case DISASM:
+        {
+            std::string addr_str = this->args.at(0);
+            unsigned long addr = std::stoul(addr_str);
+            this->_disasm(addr);
+            break;
+        }
+        case DUMP:
+        {
+            std::string addr_str = this->args.at(0);
+            unsigned long addr = std::stoul(addr_str);
+            int len = 0;
+            if (this->args.size() >= 2) {
+                std::string len_str = this->args.at(1);
+                std::stoi(len_str);
+            }
 
-            this->is_running = true;
+            this->_dump(addr, len);
+            break;
+        } 
+        case EXIT:
+        {
+            exit(0);
+            break;
         }
-        break;
-    
-    default:
-        break;
+        case GET:
+        {
+            std::string reg_name = this->args.at(0);
+            this->_get(reg_name);
+            break;
+        }
+        case GETREGS:
+        {
+            this->_getregs();
+            break;
+        }
+        case HELP:
+        {
+            this->_help();
+            break;
+        }
+        case LIST:
+        {
+            this->_list();
+            break;
+        }
+        case LOAD:
+        {
+            std::string path = this->args.at(0);
+            this->_load(path);
+            break;
+        }
+        case RUN:
+        {
+            this->_run();
+            break;
+        }
+        case VMMAP:
+        {
+            this->_vmmap();
+            break;
+        }
+        case SET:
+        {
+            std::string reg_name = this->args.at(0);
+            std::string val_str = this->args.at(1);
+            long value = std::stol(val_str);
+            this->_set(reg_name, value);
+            break;
+        }
+        case SI:
+        {
+            this->_si();
+            break;
+        }
+        case START:
+        {
+            this->_start();
+            break;
+        }    
+        default:
+            break;
     }
+    
+    this->args.clear();
+    return;
+}
+
+void tracee::_break(unsigned long addr)
+{
+    RUN_CHECK
+    // replace instr byte with cc
+    // save breakpoint
+    // ptrace(PTRACE_CONT, this->child, 0, 0);
+}
+
+void tracee::_cont()
+{
+    RUN_CHECK
+    ptrace(PTRACE_CONT, this->child, 0, 0);
+}
+
+void tracee::_delete(int breakpoint_id)
+{
+    RUN_CHECK
+}
+
+void tracee::_disasm(unsigned long addr)
+{
+    RUN_CHECK
+}
+
+void tracee::_dump(unsigned long addr, int length)
+{
+    RUN_CHECK
+}
+
+void tracee::_get(std::string reg_name)
+{
+    RUN_CHECK
+}
+
+void tracee::_getregs()
+{
+    RUN_CHECK
+}
+
+void tracee::_help()
+{
+
+}
+
+void tracee::_list()
+{
+
+}
+
+void tracee::_load(std::string path)
+{
+    LOAD_CHECK
+    this->load(path);
+}
+
+void tracee::_run()
+{
+    LOAD_CHECK
+    if (this->is_running) {
+        ddebug_msg("program is already running");
+    }
+    
+    this->is_running = true;
+    ptrace(PTRACE_CONT, this->child, 0, 0);
+}
+
+void tracee::_vmmap()
+{
+    RUN_CHECK
+}
+
+void tracee::_set(std::string reg_name, long value)
+{
+    RUN_CHECK
+}
+
+void tracee::_si()
+{
+    RUN_CHECK
+    ptrace(PTRACE_SINGLESTEP, this->child, 0, 0);
+}
+
+void tracee::_start()
+{
+    LOAD_CHECK
+    this->is_running = true;
 }
