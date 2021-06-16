@@ -29,6 +29,14 @@ std::map<std::string, enum Command> command_map = {
     {"load", LOAD}, {"run", RUN}, {"vmmap", VMMAP}, {"set", SET}, {"si", SI}, {"start", START}
 };
 
+
+std::map<std::string, int> register_map = {
+    {"r15", 0}, {"r14", 1}, {"r13", 2}, {"r12", 3}, {"rbp", 4}, {"rbx", 5}, {"r11", 6},
+    {"r10", 7}, {"r9", 8}, {"r8", 9}, {"rax", 10}, {"rcx", 11}, {"rdx", 12}, {"rsi", 13},
+    {"rdi", 14}, {"orig_rax", 15}, {"rip", 16}, {"cs", 17}, {"eflags", 18}, {"rsp", 19}, 
+    {"ss", 20}, {"fs_base", 21}, {"gs_base", 22}, {"ds", 23}, {"es", 24}, {"fs", 25}, {"gs", 26}
+};
+
 bool tracee::load(std::string path)
 {
     if ((this->pid = fork()) < 0) {
@@ -275,6 +283,7 @@ void tracee::_dump(unsigned long addr, int length)
 void tracee::_get(std::string reg_name)
 {
     RUN_CHECK
+    
 }
 
 void tracee::_getregs()
@@ -349,7 +358,7 @@ void tracee::_run()
     }
     
     this->is_running = true;
-    ptrace(PTRACE_CONT, this->pid, 0, 0);
+    this->_cont();
 }
 
 void tracee::_vmmap()
@@ -366,6 +375,7 @@ void tracee::_si()
 {
     RUN_CHECK
     ptrace(PTRACE_SINGLESTEP, this->pid, 0, 0);
+    waitpid(this->pid, &this->wait_status, 0);
 }
 
 void tracee::_start()

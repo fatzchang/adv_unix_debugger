@@ -13,4 +13,5 @@ class breakpoint {
         unsigned long addr;
         char opcode;
 };
+
 #endif
