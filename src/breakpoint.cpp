@@ -6,6 +6,8 @@ int breakpoint::id_count = 1;
 breakpoint::breakpoint(unsigned long addr, char opcode)
 {
     this->id = id_count;
+    this->addr = addr;
+    this->opcode = opcode;
 
     id_count++;
 }

@@ -66,25 +66,27 @@ bool tracee::load(std::string path)
 
 bool tracee::parse(std::string line)
 {
-    if (!line.empty()) {
-        std::istringstream input_stream(line);
-        std::string command;
-        input_stream >> command;
-        std::string arg;
-        
-        std::map<std::string, enum Command>::iterator iter = command_map.find(command);
+    if (line.empty()) {
+        return false;
+    }
 
-        // invalid command
-        if (iter == command_map.end()) {
-            return false;
-        }
+    std::istringstream input_stream(line);
+    std::string command;
+    input_stream >> command;
+    std::string arg;
+    
+    std::map<std::string, enum Command>::iterator iter = command_map.find(command);
 
-        this->command = iter->second;
+    // invalid command
+    if (iter == command_map.end()) {
+        return false;
+    }
 
-        // push all arguments
-        while (input_stream >> arg) {
-            this->args.push_back(arg);
-        }
+    this->command = iter->second;
+
+    // push all arguments
+    while (input_stream >> arg) {
+        this->args.push_back(arg);
     }
 
     return true;
@@ -341,7 +343,18 @@ void tracee::_help()
 
 void tracee::_list()
 {
+    int i;
+    for (i = 0; i < breakpoint::id_count; i++) {
+        std::map<int, breakpoint *>::iterator iter;
+        iter = this->breakpoint_index_map.find(i);
+        if (iter == this->breakpoint_index_map.end()){
+            continue;
+        }
 
+        breakpoint *pBp = iter->second;
+        std::cout << "Breakpoint " << pBp->get_id() << " at ";
+        std::cout << "0x" << std::hex << pBp->get_addr() << std::endl;
+    }
 }
 
 void tracee::_load(std::string path)
