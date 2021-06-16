@@ -1,7 +1,7 @@
 #include "breakpoint.hpp"
 
 // use to distribute id of each instance
-int breakpoint::id_count = 0;
+int breakpoint::id_count = 1;
 
 breakpoint::breakpoint(unsigned long addr, char opcode)
 {

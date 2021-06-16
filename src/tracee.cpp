@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
-#include <unistd.h>
 #include <sstream>
+#include <unistd.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 
@@ -49,7 +49,9 @@ bool tracee::load(std::string path)
 
     this->is_loaded = true;
 
-    std::cout << "program '" << path << "' loaded. entry point 0x" << std::hex << regs.rip << std::endl;
+    std::stringstream msg;
+    msg << "program '" << path << "' loaded. entry point 0x" << std::hex << regs.rip;
+    ddebug_msg(msg.str());
     return true;
 }
 
@@ -207,14 +209,17 @@ void tracee::_break(unsigned long addr)
     breakpoint *pBp = new breakpoint(addr, *pOpcode);
     int breakpoint_id = pBp->get_id();
 
-    // save into breakpoint map
+    // save into breakpoint maps for further searching
     this->breakpoint_addr_map.insert(std::pair<unsigned long, breakpoint *>(addr, pBp));
-    this->breakpoint_index_map.insert(std::pair<int, breakpoint *>(addr, pBp));
+    this->breakpoint_index_map.insert(std::pair<int, breakpoint *>(breakpoint_id, pBp));
     
     // replace with 0xcc
     *pOpcode = 0xcc;
 
-    std::cout << "Breakpoint set: " << "0x" << std::hex << addr << std::endl;
+    std::stringstream msg;
+    msg << "Breakpoint " << breakpoint_id << " at ";
+    msg << "0x" << std::hex << addr;
+    ddebug_msg(msg.str());
 }
 
 void tracee::_cont()
@@ -225,8 +230,32 @@ void tracee::_cont()
 
 void tracee::_delete(int breakpoint_id)
 {
-    // should free the breakpoint
     RUN_CHECK
+    std::stringstream msg;
+
+    // get breakpoint instance
+    std::map<int, breakpoint *>::iterator iter;
+    iter = this->breakpoint_index_map.find(breakpoint_id);
+    if (iter == this->breakpoint_index_map.end()){
+        msg << "No breakpoint number " << breakpoint_id << ".";
+        ddebug_msg(msg.str());
+        return;
+    }
+
+    breakpoint *pBp = iter->second;
+    unsigned long addr = pBp->get_addr();
+    // restore original code
+    long code = ptrace(PTRACE_PEEKTEXT, this->child, addr, 0);
+    ((char *)&code)[0] = pBp->get_opcode();
+
+    // delete  and free breakpoint
+    this->breakpoint_addr_map.erase(addr);
+    this->breakpoint_index_map.erase(breakpoint_id);
+    delete pBp;
+    
+
+    msg << "Breakpoint " << breakpoint_id << " has deleted.";
+    ddebug_msg(msg.str());
 }
 
 void tracee::_disasm(unsigned long addr)
