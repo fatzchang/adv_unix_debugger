@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <iomanip>
 #include <unistd.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
@@ -215,6 +216,7 @@ void tracee::_break(unsigned long addr)
     
     // replace with 0xcc
     *pOpcode = 0xcc;
+    if (ptrace(PTRACE_POKETEXT, pid, addr, code) != 0) ddebug_msg("failed to poke text");
 
     std::stringstream msg;
     msg << "Breakpoint " << breakpoint_id << " at ";
@@ -226,6 +228,7 @@ void tracee::_cont()
 {
     RUN_CHECK
     ptrace(PTRACE_CONT, this->pid, 0, 0);
+    waitpid(this->pid, &this->wait_status, 0);
 }
 
 void tracee::_delete(int breakpoint_id)
@@ -278,7 +281,33 @@ void tracee::_getregs()
 {
     RUN_CHECK
     struct user_regs_struct regs;
-    if (ptrace(PTRACE_GETREGS, this->pid, 0, &regs) != 0) errquit("GETREGS");
+    if (ptrace(PTRACE_GETREGS, this->pid, 0, &regs) != 0) {
+        ddebug_msg("failed to get registers");
+    }
+
+    std::cout << std::left;
+    std::cout << std::setw(6) << "RAX" << std::setw(15) << std::hex << regs.rax;
+    std::cout << std::setw(6) << "RBX" << std::setw(15) << std::hex << regs.rbx;
+    std::cout << std::setw(6) << "RCX" << std::setw(15) << std::hex << regs.rcx;
+    std::cout << std::setw(6) << "RDX" << std::setw(15) << std::hex << regs.rdx << std::endl;
+
+    std::cout << std::setw(6) << "R8" << std::setw(15) << std::hex << regs.r8;
+    std::cout << std::setw(6) << "R9" << std::setw(15) << std::hex << regs.r9;
+    std::cout << std::setw(6) << "R10" << std::setw(15) << std::hex << regs.r10;
+    std::cout << std::setw(6) << "R11" << std::setw(15) << std::hex << regs.r11 << std::endl;
+
+    std::cout << std::setw(6) << "R12" << std::setw(15) << std::hex << regs.r12;
+    std::cout << std::setw(6) << "R13" << std::setw(15) << std::hex << regs.r13;
+    std::cout << std::setw(6) << "R14" << std::setw(15) << std::hex << regs.r14;
+    std::cout << std::setw(6) << "R15" << std::setw(15) << std::hex << regs.r15 << std::endl;
+
+    std::cout << std::setw(6) << "RDI" << std::setw(15) << std::hex << regs.rdi;
+    std::cout << std::setw(6) << "RSI" << std::setw(15) << std::hex << regs.rsi;
+    std::cout << std::setw(6) << "RBP" << std::setw(15) << std::hex << regs.rbp;
+    std::cout << std::setw(6) << "RSP" << std::setw(15) << std::hex << regs.rsp << std::endl;
+
+    std::cout << std::setw(6) << "RIP" << std::setw(15) << std::hex << regs.rip;
+    std::cout << std::setw(6) << "FLAGS" << std::setw(15) << std::hex << regs.eflags << std::endl;
 }
 
 void tracee::_help()
