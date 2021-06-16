@@ -21,7 +21,7 @@ class tracee {
         bool parse(std::string line);
         void interact();
     private:
-        pid_t child;
+        pid_t pid;
         int wait_status;
         std::vector<std::string> args;
         bool is_loaded = false;

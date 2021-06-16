@@ -30,22 +30,22 @@ std::map<std::string, enum Command> command_map = {
 
 bool tracee::load(std::string path)
 {
-    if ((this->child = fork()) < 0) {
+    if ((this->pid = fork()) < 0) {
         return false;
-    } else if (this->child == 0) {
+    } else if (this->pid == 0) {
         // child
         if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) errquit("traceme");
         execlp(path.c_str(), path.c_str(), NULL);
         errquit("execlp");
     }
 
-    if (waitpid(child, &this->wait_status, 0) < 0) return false;
+    if (waitpid(pid, &this->wait_status, 0) < 0) return false;
     if (!WIFSTOPPED(this->wait_status)) return false;
-    ptrace(PTRACE_SETOPTIONS, this->child, 0, PTRACE_O_EXITKILL);
+    ptrace(PTRACE_SETOPTIONS, this->pid, 0, PTRACE_O_EXITKILL);
 
     struct user_regs_struct regs;
     // get rip
-    if (ptrace(PTRACE_GETREGS, this->child, 0, &regs) != 0) return false;
+    if (ptrace(PTRACE_GETREGS, this->pid, 0, &regs) != 0) return false;
 
     this->is_loaded = true;
 
@@ -202,7 +202,7 @@ void tracee::_break(unsigned long addr)
 {
     RUN_CHECK
     // get original code
-    long code = ptrace(PTRACE_PEEKTEXT, this->child, addr, 0);
+    long code = ptrace(PTRACE_PEEKTEXT, this->pid, addr, 0);
     char *pOpcode = ((char *)&code);
 
     // create a breakpoint instance
@@ -225,7 +225,7 @@ void tracee::_break(unsigned long addr)
 void tracee::_cont()
 {
     RUN_CHECK
-    ptrace(PTRACE_CONT, this->child, 0, 0);
+    ptrace(PTRACE_CONT, this->pid, 0, 0);
 }
 
 void tracee::_delete(int breakpoint_id)
@@ -245,7 +245,7 @@ void tracee::_delete(int breakpoint_id)
     breakpoint *pBp = iter->second;
     unsigned long addr = pBp->get_addr();
     // restore original code
-    long code = ptrace(PTRACE_PEEKTEXT, this->child, addr, 0);
+    long code = ptrace(PTRACE_PEEKTEXT, this->pid, addr, 0);
     ((char *)&code)[0] = pBp->get_opcode();
 
     // delete  and free breakpoint
@@ -254,12 +254,13 @@ void tracee::_delete(int breakpoint_id)
     delete pBp;
     
 
-    msg << "Breakpoint " << breakpoint_id << " has deleted.";
+    msg << "Breakpoint " << breakpoint_id << " deleted.";
     ddebug_msg(msg.str());
 }
 
 void tracee::_disasm(unsigned long addr)
 {
+
     RUN_CHECK
 }
 
@@ -276,11 +277,28 @@ void tracee::_get(std::string reg_name)
 void tracee::_getregs()
 {
     RUN_CHECK
+    struct user_regs_struct regs;
+    if (ptrace(PTRACE_GETREGS, this->pid, 0, &regs) != 0) errquit("GETREGS");
 }
 
 void tracee::_help()
 {
-
+    std::cout << "- break {instruction-address}: add a break point" << std::endl;
+    std::cout << "- cont: continue execution" << std::endl;
+    std::cout << "- delete {break-point-id}: remove a break point" << std::endl;
+    std::cout << "- disasm addr: disassemble instructions in a file or a memory region" << std::endl;
+    std::cout << "- dump addr [length]: dump memory content" << std::endl;
+    std::cout << "- exit: terminate the debugger" << std::endl;
+    std::cout << "- get reg: get a single value from a register" << std::endl;
+    std::cout << "- getregs: show registers" << std::endl;
+    std::cout << "- help: show this message" << std::endl;
+    std::cout << "- list: list break points" << std::endl;
+    std::cout << "- load {path/to/a/program}: load a program" << std::endl;
+    std::cout << "- run: run the program" << std::endl;
+    std::cout << "- vmmap: show memory layout" << std::endl;
+    std::cout << "- set reg val: get a single value to a register" << std::endl;
+    std::cout << "- si: step into instruction" << std::endl;
+    std::cout << "- start: start the program and stop at the first instruction" << std::endl;
 }
 
 void tracee::_list()
@@ -302,7 +320,7 @@ void tracee::_run()
     }
     
     this->is_running = true;
-    ptrace(PTRACE_CONT, this->child, 0, 0);
+    ptrace(PTRACE_CONT, this->pid, 0, 0);
 }
 
 void tracee::_vmmap()
@@ -318,7 +336,7 @@ void tracee::_set(std::string reg_name, long value)
 void tracee::_si()
 {
     RUN_CHECK
-    ptrace(PTRACE_SINGLESTEP, this->child, 0, 0);
+    ptrace(PTRACE_SINGLESTEP, this->pid, 0, 0);
 }
 
 void tracee::_start()

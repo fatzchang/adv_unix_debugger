@@ -23,9 +23,9 @@ int main(int argc, char *argv[])
 
     // // interact with user
     while (std::getline(std::cin, line)) {
-        if (!program.parse(line)) errquit("command failed");
-
-        program.interact();
+        if (program.parse(line)) {
+            program.interact();
+        }
     }
 
     

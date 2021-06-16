@@ -42,5 +42,5 @@ void errquit(std::string message)
 
 void ddebug_msg(std::string message)
 {
-    std::cout << "**" << message << std::endl;
+    std::cout << "** " << message << std::endl;
 }
