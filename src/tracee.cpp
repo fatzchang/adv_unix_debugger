@@ -4,9 +4,11 @@
 #include <sstream>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
+
 #include "tracee.hpp"
 #include "utils.hpp"
 #include <sys/user.h>
+#include "breakpoint.hpp"
 
 #define RUN_CHECK \
     if (!this->is_running) { \
@@ -90,7 +92,7 @@ void tracee::interact()
         {
             std::string addr_str = this->args.at(0);
             unsigned long addr;
-            addr = std::stoul(addr_str);
+            addr = std::stoul(addr_str, NULL, 16);
             this->_break(addr);
             break;
         }
@@ -109,14 +111,14 @@ void tracee::interact()
         case DISASM:
         {
             std::string addr_str = this->args.at(0);
-            unsigned long addr = std::stoul(addr_str);
+            unsigned long addr = std::stoul(addr_str, NULL, 16);
             this->_disasm(addr);
             break;
         }
         case DUMP:
         {
             std::string addr_str = this->args.at(0);
-            unsigned long addr = std::stoul(addr_str);
+            unsigned long addr = std::stoul(addr_str, NULL, 16);
             int len = 0;
             if (this->args.size() >= 2) {
                 std::string len_str = this->args.at(1);
@@ -197,9 +199,22 @@ void tracee::interact()
 void tracee::_break(unsigned long addr)
 {
     RUN_CHECK
-    // replace instr byte with cc
-    // save breakpoint
-    // ptrace(PTRACE_CONT, this->child, 0, 0);
+    // get original code
+    long code = ptrace(PTRACE_PEEKTEXT, this->child, addr, 0);
+    char *pOpcode = ((char *)&code);
+
+    // create a breakpoint instance
+    breakpoint *pBp = new breakpoint(addr, *pOpcode);
+    int breakpoint_id = pBp->get_id();
+
+    // save into breakpoint map
+    this->breakpoint_addr_map.insert(std::pair<unsigned long, breakpoint *>(addr, pBp));
+    this->breakpoint_index_map.insert(std::pair<int, breakpoint *>(addr, pBp));
+    
+    // replace with 0xcc
+    *pOpcode = 0xcc;
+
+    std::cout << "Breakpoint set: " << "0x" << std::hex << addr << std::endl;
 }
 
 void tracee::_cont()
@@ -210,6 +225,7 @@ void tracee::_cont()
 
 void tracee::_delete(int breakpoint_id)
 {
+    // should free the breakpoint
     RUN_CHECK
 }
 

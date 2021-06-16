@@ -5,6 +5,9 @@
 #include <vector>
 #include <sys/types.h>
 #include <map>
+
+#include "breakpoint.hpp"
+
 enum Command { 
     BREAK,  CONT, DELETE, DISASM, 
     DUMP, EXIT, GET, GETREGS, HELP, 
@@ -24,6 +27,8 @@ class tracee {
         bool is_loaded = false;
         bool is_running = false;
         enum Command command;
+        std::map<unsigned long, breakpoint *> breakpoint_addr_map; // (address, original_byte)
+        std::map<int, breakpoint *> breakpoint_index_map; // (address, original_byte)
 
         // command handler
         void _break(unsigned long addr); //
