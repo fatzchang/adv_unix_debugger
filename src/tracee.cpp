@@ -285,7 +285,15 @@ void tracee::_dump(unsigned long addr, int length)
 void tracee::_get(std::string reg_name)
 {
     RUN_CHECK
-    
+    std::map<std::string, int>::iterator iter = register_map.find(reg_name);
+    if (iter == register_map.end()) {
+        ddebug_msg("invalid register name");
+        return;
+    }
+
+    int byte_offset = iter->second * sizeof(unsigned long long int);
+    long value = ptrace(PTRACE_PEEKUSER, this->pid, byte_offset, 0);
+    std::cout << reg_name << " = " << value << " (0x" << std::hex << value << ")" << std::endl;   
 }
 
 void tracee::_getregs()
