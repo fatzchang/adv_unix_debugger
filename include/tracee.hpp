@@ -48,6 +48,8 @@ class tracee {
         void _set(std::string reg_name, unsigned long value);
         void _si();
         void _start();
+        
+        bool wait_n_check();
 };
 
 

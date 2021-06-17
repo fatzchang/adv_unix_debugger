@@ -13,13 +13,13 @@
 
 #define RUN_CHECK \
     if (!this->is_running) { \
-        ddebug_msg("need to run first"); \
+        ddebug_msg("Need to run first"); \
         return; \
     }
 
 #define LOAD_CHECK \
     if (!this->is_loaded) { \
-        ddebug_msg("need to load first"); \
+        ddebug_msg("Need to load first"); \
         return; \
     }
 
@@ -62,7 +62,7 @@ bool tracee::load(std::string path)
     this->is_loaded = true;
 
     std::stringstream msg;
-    msg << "program '" << path << "' loaded. entry point 0x" << std::hex << regs.rip;
+    msg << "Program '" << path << "' loaded. entry point 0x" << std::hex << regs.rip;
     ddebug_msg(msg.str());
     return true;
 }
@@ -97,11 +97,6 @@ bool tracee::parse(std::string line)
 
 void tracee::interact()
 {
-    // check the status first
-    if (this->is_loaded && !WIFSTOPPED(this->wait_status)) {
-        return;
-    }
-
     switch (this->command)
     {
         case BREAK:
@@ -216,7 +211,7 @@ void tracee::_break(unsigned long addr)
     RUN_CHECK
     // get original code
     long code = ptrace(PTRACE_PEEKTEXT, this->pid, addr, 0);
-    char *pOpcode = ((char *)&code);
+    unsigned char *pOpcode = ((unsigned char *)&code);
 
     // create a breakpoint instance
     breakpoint *pBp = new breakpoint(addr, *pOpcode);
@@ -239,8 +234,44 @@ void tracee::_break(unsigned long addr)
 void tracee::_cont()
 {
     RUN_CHECK
+    // get rip
+    std::map<std::string, int>::iterator iter = register_map.find("rip");
+    int byte_offset = iter->second * sizeof(unsigned long long int);
+    long rip = ptrace(PTRACE_PEEKUSER, this->pid, byte_offset, 0);
+
+    // get original code and replace first byte
+    long code = ptrace(PTRACE_PEEKTEXT, this->pid, rip - 1, 0);
+    unsigned char *pOpcode = ((unsigned char *)&code);
+
+    if (*pOpcode == 0xcc) {
+        // get the breakpoint by address
+        std::map<unsigned long, breakpoint *>::iterator iter;
+        iter = this->breakpoint_addr_map.find(rip - 1);
+        if (iter == breakpoint_addr_map.end()) {
+            ddebug_msg("Breakpoint not found");
+            return;
+        }
+
+        breakpoint *pBp = iter->second;
+        *pOpcode = pBp->get_opcode();
+        if (ptrace(PTRACE_POKETEXT, this->pid, rip - 1, code) != 0) {
+            ddebug_msg("Failed to resotre code");
+            return;
+        }
+
+        if (ptrace(PTRACE_POKEUSER, this->pid, byte_offset, rip - 1) != 0) {
+            ddebug_msg("Failed to restore rip");
+            return;
+        }
+    }
+
+
     ptrace(PTRACE_CONT, this->pid, 0, 0);
-    waitpid(this->pid, &this->wait_status, 0);
+    if (!this->wait_n_check()) {
+        this->is_loaded = false;
+        this->is_running = false;
+        ddebug_msg("Program exited");
+    }
 }
 
 void tracee::_delete(int breakpoint_id)
@@ -261,7 +292,7 @@ void tracee::_delete(int breakpoint_id)
     unsigned long addr = pBp->get_addr();
     // restore original code
     long code = ptrace(PTRACE_PEEKTEXT, this->pid, addr, 0);
-    ((char *)&code)[0] = pBp->get_opcode();
+    ((unsigned char *)&code)[0] = pBp->get_opcode();
 
     // delete  and free breakpoint
     this->breakpoint_addr_map.erase(addr);
@@ -289,7 +320,7 @@ void tracee::_get(std::string reg_name)
     RUN_CHECK
     std::map<std::string, int>::iterator iter = register_map.find(reg_name);
     if (iter == register_map.end()) {
-        ddebug_msg("invalid register name");
+        ddebug_msg("Invalid register name");
         return;
     }
 
@@ -304,7 +335,7 @@ void tracee::_getregs()
     RUN_CHECK
     struct user_regs_struct regs;
     if (ptrace(PTRACE_GETREGS, this->pid, 0, &regs) != 0) {
-        ddebug_msg("failed to get registers");
+        ddebug_msg("Failed to get registers");
     }
 
     std::cout << std::left << std::hex;
@@ -372,15 +403,14 @@ void tracee::_list()
 
 void tracee::_load(std::string path)
 {
-    LOAD_CHECK
-    this->load(path);
+    if (!this->load(path)) ddebug_msg("Failed to load program");
 }
 
 void tracee::_run()
 {
     LOAD_CHECK
     if (this->is_running) {
-        ddebug_msg("program is already running");
+        ddebug_msg("Program is already running");
     }
     
     this->is_running = true;
@@ -398,13 +428,13 @@ void tracee::_set(std::string reg_name, unsigned long value)
 
     std::map<std::string, int>::iterator iter = register_map.find(reg_name);
     if (iter == register_map.end()) {
-        ddebug_msg("invalid register name");
+        ddebug_msg("Invalid register name");
         return;
     }
 
     int byte_offset = iter->second * sizeof(unsigned long long int);
     if (ptrace(PTRACE_POKEUSER, this->pid, byte_offset, value) != 0) {
-        ddebug_msg("failed to set register");
+        ddebug_msg("Failed to set register");
     }
 }
 
@@ -412,11 +442,17 @@ void tracee::_si()
 {
     RUN_CHECK
     ptrace(PTRACE_SINGLESTEP, this->pid, 0, 0);
-    waitpid(this->pid, &this->wait_status, 0);
+    this->wait_n_check();
 }
 
 void tracee::_start()
 {
     LOAD_CHECK
     this->is_running = true;
+}
+
+bool tracee::wait_n_check()
+{
+    waitpid(this->pid, &this->wait_status, 0);
+    return !!WIFSTOPPED(this->wait_status);
 }

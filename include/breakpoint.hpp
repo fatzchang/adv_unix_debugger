@@ -4,10 +4,10 @@
 class breakpoint {
     public:
         static int id_count;
-        breakpoint(unsigned long addr, char opcode);
+        breakpoint(unsigned long addr, unsigned char opcode);
         int get_id();
         unsigned long get_addr();
-        char get_opcode();
+        unsigned char get_opcode();
     private:
         int id;
         unsigned long addr;

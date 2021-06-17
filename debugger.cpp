@@ -17,8 +17,8 @@ int main(int argc, char *argv[])
     parse_args(argc, argv, path, script);
     tracee program;
     if (!path.empty()) {
-        if (!file_exist(path)) errquit("program not found");
-        if (!program.load(path)) errquit("cannot load program");
+        if (!file_exist(path)) errquit("Program not found");
+        if (!program.load(path)) errquit("Failed to load program");
     }
 
     // // interact with user
