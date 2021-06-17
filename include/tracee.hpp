@@ -45,7 +45,7 @@ class tracee {
         void _load(std::string path);
         void _run(); 
         void _vmmap();
-        void _set(std::string reg_name, long value);
+        void _set(std::string reg_name, unsigned long value);
         void _si();
         void _start();
 };

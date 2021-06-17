@@ -104,8 +104,7 @@ void tracee::interact()
         case BREAK:
         {
             std::string addr_str = this->args.at(0);
-            unsigned long addr;
-            addr = std::stoul(addr_str, NULL, 16);
+            unsigned long addr = str_to_ul(addr_str);
             this->_break(addr);
             break;
         }
@@ -124,14 +123,14 @@ void tracee::interact()
         case DISASM:
         {
             std::string addr_str = this->args.at(0);
-            unsigned long addr = std::stoul(addr_str, NULL, 16);
+            unsigned long addr = str_to_ul(addr_str);
             this->_disasm(addr);
             break;
         }
         case DUMP:
         {
             std::string addr_str = this->args.at(0);
-            unsigned long addr = std::stoul(addr_str, NULL, 16);
+            unsigned long addr = str_to_ul(addr_str);
             int len = 0;
             if (this->args.size() >= 2) {
                 std::string len_str = this->args.at(1);
@@ -187,7 +186,7 @@ void tracee::interact()
         {
             std::string reg_name = this->args.at(0);
             std::string val_str = this->args.at(1);
-            long value = std::stol(val_str);
+            unsigned long value = str_to_ul(val_str);
             this->_set(reg_name, value);
             break;
         }
@@ -293,7 +292,8 @@ void tracee::_get(std::string reg_name)
 
     int byte_offset = iter->second * sizeof(unsigned long long int);
     long value = ptrace(PTRACE_PEEKUSER, this->pid, byte_offset, 0);
-    std::cout << reg_name << " = " << value << " (0x" << std::hex << value << ")" << std::endl;   
+    std::cout << reg_name << " = " << value << " (0x" << std::hex << value << ")" << std::endl;
+    std::cout << std::dec; // restore to decimal
 }
 
 void tracee::_getregs()
@@ -304,29 +304,30 @@ void tracee::_getregs()
         ddebug_msg("failed to get registers");
     }
 
-    std::cout << std::left;
-    std::cout << std::setw(6) << "RAX" << std::setw(15) << std::hex << regs.rax;
-    std::cout << std::setw(6) << "RBX" << std::setw(15) << std::hex << regs.rbx;
-    std::cout << std::setw(6) << "RCX" << std::setw(15) << std::hex << regs.rcx;
-    std::cout << std::setw(6) << "RDX" << std::setw(15) << std::hex << regs.rdx << std::endl;
+    std::cout << std::left << std::hex;
+    std::cout << std::setw(6) << "RAX" << std::setw(15) << regs.rax;
+    std::cout << std::setw(6) << "RBX" << std::setw(15) << regs.rbx;
+    std::cout << std::setw(6) << "RCX" << std::setw(15) << regs.rcx;
+    std::cout << std::setw(6) << "RDX" << std::setw(15) << regs.rdx << std::endl;
 
-    std::cout << std::setw(6) << "R8" << std::setw(15) << std::hex << regs.r8;
-    std::cout << std::setw(6) << "R9" << std::setw(15) << std::hex << regs.r9;
-    std::cout << std::setw(6) << "R10" << std::setw(15) << std::hex << regs.r10;
-    std::cout << std::setw(6) << "R11" << std::setw(15) << std::hex << regs.r11 << std::endl;
+    std::cout << std::setw(6) << "R8" << std::setw(15) << regs.r8;
+    std::cout << std::setw(6) << "R9" << std::setw(15) << regs.r9;
+    std::cout << std::setw(6) << "R10" << std::setw(15) << regs.r10;
+    std::cout << std::setw(6) << "R11" << std::setw(15) << regs.r11 << std::endl;
 
-    std::cout << std::setw(6) << "R12" << std::setw(15) << std::hex << regs.r12;
-    std::cout << std::setw(6) << "R13" << std::setw(15) << std::hex << regs.r13;
-    std::cout << std::setw(6) << "R14" << std::setw(15) << std::hex << regs.r14;
-    std::cout << std::setw(6) << "R15" << std::setw(15) << std::hex << regs.r15 << std::endl;
+    std::cout << std::setw(6) << "R12" << std::setw(15) << regs.r12;
+    std::cout << std::setw(6) << "R13" << std::setw(15) << regs.r13;
+    std::cout << std::setw(6) << "R14" << std::setw(15) << regs.r14;
+    std::cout << std::setw(6) << "R15" << std::setw(15) << regs.r15 << std::endl;
 
-    std::cout << std::setw(6) << "RDI" << std::setw(15) << std::hex << regs.rdi;
-    std::cout << std::setw(6) << "RSI" << std::setw(15) << std::hex << regs.rsi;
-    std::cout << std::setw(6) << "RBP" << std::setw(15) << std::hex << regs.rbp;
-    std::cout << std::setw(6) << "RSP" << std::setw(15) << std::hex << regs.rsp << std::endl;
+    std::cout << std::setw(6) << "RDI" << std::setw(15) << regs.rdi;
+    std::cout << std::setw(6) << "RSI" << std::setw(15) << regs.rsi;
+    std::cout << std::setw(6) << "RBP" << std::setw(15) << regs.rbp;
+    std::cout << std::setw(6) << "RSP" << std::setw(15) << regs.rsp << std::endl;
 
-    std::cout << std::setw(6) << "RIP" << std::setw(15) << std::hex << regs.rip;
-    std::cout << std::setw(6) << "FLAGS" << std::setw(15) << std::hex << regs.eflags << std::endl;
+    std::cout << std::setw(6) << "RIP" << std::setw(15) << regs.rip;
+    std::cout << std::setw(6) << "FLAGS" << std::setw(15) << regs.eflags << std::endl;
+    std::cout << std::dec;
 }
 
 void tracee::_help()
@@ -362,6 +363,7 @@ void tracee::_list()
         breakpoint *pBp = iter->second;
         std::cout << "Breakpoint " << pBp->get_id() << " at ";
         std::cout << "0x" << std::hex << pBp->get_addr() << std::endl;
+        std::cout << std::dec; // restore to decimal
     }
 }
 
@@ -387,9 +389,20 @@ void tracee::_vmmap()
     RUN_CHECK
 }
 
-void tracee::_set(std::string reg_name, long value)
+void tracee::_set(std::string reg_name, unsigned long value)
 {
     RUN_CHECK
+
+    std::map<std::string, int>::iterator iter = register_map.find(reg_name);
+    if (iter == register_map.end()) {
+        ddebug_msg("invalid register name");
+        return;
+    }
+
+    int byte_offset = iter->second * sizeof(unsigned long long int);
+    if (ptrace(PTRACE_POKEUSER, this->pid, byte_offset, value) != 0) {
+        ddebug_msg("failed to set register");
+    }
 }
 
 void tracee::_si()
