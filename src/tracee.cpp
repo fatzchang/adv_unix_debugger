@@ -26,7 +26,10 @@
 std::map<std::string, enum Command> command_map = {
     {"break", BREAK}, {"cont", CONT}, {"delete", DELETE}, {"disasm", DISASM}, {"dump", DUMP},
     {"exit", EXIT}, {"get", GET}, {"getregs", GETREGS}, {"help", HELP}, {"list", LIST},
-    {"load", LOAD}, {"run", RUN}, {"vmmap", VMMAP}, {"set", SET}, {"si", SI}, {"start", START}
+    {"load", LOAD}, {"run", RUN}, {"vmmap", VMMAP}, {"set", SET}, {"si", SI}, {"start", START},
+    // short alias
+    {"b", BREAK}, {"c", CONT}, {"d", DISASM}, {"x", DUMP}, {"q", EXIT}, {"g", GET}, {"h", HELP}, 
+    {"l", LIST}, {"r", RUN}, {"m", VMMAP}, {"s", SET}
 };
 
 
