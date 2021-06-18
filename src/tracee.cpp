@@ -311,7 +311,8 @@ void tracee::_disasm(unsigned long addr)
             std::cout << std::setw(6) << std::right << std::setfill('0') << insn[j].address << ": " << std::setfill(' ');
             std::stringstream bytes_str;
             for (int k = 0; k < insn[j].size; k++) {
-                bytes_str << std::setw(2) << std::right << std::setfill('0') << std::hex << (unsigned int)insn[j].bytes[k] << " ";
+                bytes_str << std::setw(2) << std::right << std::setfill('0') << std::hex;
+                bytes_str << (unsigned int)insn[j].bytes[k] << " ";
             }
 
             std::cout << std::setw(23) << std::left << bytes_str.str();
@@ -445,8 +446,9 @@ void tracee::_list()
         }
 
         breakpoint *pBp = iter->second;
-        std::cout << "Breakpoint " << pBp->get_id() << " at ";
-        std::cout << "0x" << std::hex << pBp->get_addr() << std::endl;
+        std::cout << std::right;
+        std::cout << std::setw(3) << pBp->get_id() << ":   ";
+        std::cout << std::hex << pBp->get_addr() << std::endl;
         std::cout << std::dec; // restore to decimal
     }
 }
