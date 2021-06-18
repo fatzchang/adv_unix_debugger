@@ -6,11 +6,11 @@
 #include <unistd.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
+#include <sys/user.h>
 #include <capstone/capstone.h>
 
 #include "tracee.hpp"
 #include "utils.hpp"
-#include <sys/user.h>
 #include "breakpoint.hpp"
 
 #define RUN_CHECK \
@@ -295,28 +295,35 @@ void tracee::_disasm(unsigned long addr)
         code_segment[i] = this->get_code(target_addr);
     }
 
-    // csh handle;
-	// cs_insn *insn;
-	// size_t count;
+    csh handle;
+	cs_insn *insn;
+	size_t count;
 
-	// if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK) {
-	// 	return;
-    // }
+	if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK) {
+		return;
+    }
 
-	// count = cs_disasm(handle, (uint8_t *)code_segment, sizeof(code_segment)-1, addr, 10, &insn);
-	// if (count > 0) {
-	// 	size_t j;
-	// 	for (j = 0; j < count; j++) {
-    //         std::cout << insn[j].mnemonic << std::endl;
-			// printf("0x%"PRIx64":\t%s\t\t%s\n", insn[j].address, insn[j].mnemonic,
-			// 		insn[j].op_str);
-	// 	}
+	count = cs_disasm(handle, (uint8_t *)code_segment, sizeof(code_segment)-1, addr, 10, &insn);
+	if (count > 0) {
+		size_t j;
+        std::cout << std::hex;
+		for (j = 0; j < count; j++) {
+            std::cout << std::setw(6) << std::right << std::setfill('0') << insn[j].address << ": " << std::setfill(' ');
+            std::stringstream bytes_str;
+            for (int k = 0; k < insn[j].size; k++) {
+                bytes_str << std::setw(2) << std::right << std::setfill('0') << std::hex << (unsigned int)insn[j].bytes[k] << " ";
+            }
 
-	// 	cs_free(insn, count);
-	// } else
-	// 	printf("ERROR: Failed to disassemble given code!\n");
+            std::cout << std::setw(23) << std::left << bytes_str.str();
+            std::cout << std::setw(6) << std::left << insn[j].mnemonic << " " << insn[j].op_str << std::endl;
+		}
+        std::cout << std::dec;
 
-	// cs_close(&handle);
+		cs_free(insn, count);
+	} else
+		printf("ERROR: Failed to disassemble given code!\n");
+
+	cs_close(&handle);
 }
 
 // TODO: ignore out of range
