@@ -1,6 +1,6 @@
 EXEC	= hw4
 CPP		= g++
-FLAGS	= -DDEBUG=1
+FLAGS	= -DDEBUG=1 -lcapstone
 
 INCL_DIR	= include
 SRC_DIR		= src

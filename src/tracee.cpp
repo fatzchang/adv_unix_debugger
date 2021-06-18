@@ -2,9 +2,11 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
+#include <fstream>
 #include <unistd.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
+#include <capstone/capstone.h>
 
 #include "tracee.hpp"
 #include "utils.hpp"
@@ -285,8 +287,36 @@ void tracee::_delete(int breakpoint_id)
 
 void tracee::_disasm(unsigned long addr)
 {
-
     RUN_CHECK
+    // x86_64 max instruction length is 64 bits, use long type is sufficient 
+    long code_segment[10];
+    for (int i = 0; i < 10; i++) {
+        unsigned long target_addr = (addr + i * 8);
+        code_segment[i] = this->get_code(target_addr);
+    }
+
+    // csh handle;
+	// cs_insn *insn;
+	// size_t count;
+
+	// if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK) {
+	// 	return;
+    // }
+
+	// count = cs_disasm(handle, (uint8_t *)code_segment, sizeof(code_segment)-1, addr, 10, &insn);
+	// if (count > 0) {
+	// 	size_t j;
+	// 	for (j = 0; j < count; j++) {
+    //         std::cout << insn[j].mnemonic << std::endl;
+			// printf("0x%"PRIx64":\t%s\t\t%s\n", insn[j].address, insn[j].mnemonic,
+			// 		insn[j].op_str);
+	// 	}
+
+	// 	cs_free(insn, count);
+	// } else
+	// 	printf("ERROR: Failed to disassemble given code!\n");
+
+	// cs_close(&handle);
 }
 
 // TODO: ignore out of range
@@ -433,6 +463,15 @@ void tracee::_run()
 void tracee::_vmmap()
 {
     RUN_CHECK
+    std::stringstream path;
+    path << "/proc/" << this->pid << "/maps";
+    std::ifstream maps_stream(path.str(), std::ifstream::in);
+    std::string line;
+    
+    while (std::getline(maps_stream, line)) {
+        std::cout << line << std::endl;
+    };
+    
 }
 
 void tracee::_set(std::string reg_name, unsigned long value)
