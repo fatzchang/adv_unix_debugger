@@ -1,3 +1,7 @@
 /sample
 /.vscode
-hw4
+/script
+/build
+/hw4
+/.gdb_history
+/peda*
