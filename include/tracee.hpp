@@ -49,7 +49,12 @@ class tracee {
         void _si();
         void _start();
         
+
         bool wait_n_check();
+        bool switch_n_step();
+        int get_rip(long &rip);
+        long get_code(long addr);
+        void backward();
 };
 
 

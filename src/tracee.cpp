@@ -234,44 +234,19 @@ void tracee::_break(unsigned long addr)
 void tracee::_cont()
 {
     RUN_CHECK
-    // get rip
-    std::map<std::string, int>::iterator iter = register_map.find("rip");
-    int byte_offset = iter->second * sizeof(unsigned long long int);
-    long rip = ptrace(PTRACE_PEEKUSER, this->pid, byte_offset, 0);
-
-    // get original code and replace first byte
-    long code = ptrace(PTRACE_PEEKTEXT, this->pid, rip - 1, 0);
-    unsigned char *pOpcode = ((unsigned char *)&code);
-
-    if (*pOpcode == 0xcc) {
-        // get the breakpoint by address
-        std::map<unsigned long, breakpoint *>::iterator iter;
-        iter = this->breakpoint_addr_map.find(rip - 1);
-        if (iter == breakpoint_addr_map.end()) {
-            ddebug_msg("Breakpoint not found");
-            return;
-        }
-
-        breakpoint *pBp = iter->second;
-        *pOpcode = pBp->get_opcode();
-        if (ptrace(PTRACE_POKETEXT, this->pid, rip - 1, code) != 0) {
-            ddebug_msg("Failed to resotre code");
-            return;
-        }
-
-        if (ptrace(PTRACE_POKEUSER, this->pid, byte_offset, rip - 1) != 0) {
-            ddebug_msg("Failed to restore rip");
-            return;
-        }
-    }
-
+    
+    this->switch_n_step();
 
     ptrace(PTRACE_CONT, this->pid, 0, 0);
-    if (!this->wait_n_check()) {
+    if (this->wait_n_check()) {
+        this->backward();
+    } else {
         this->is_loaded = false;
         this->is_running = false;
         ddebug_msg("Program exited");
     }
+
+
 }
 
 void tracee::_delete(int breakpoint_id)
@@ -438,11 +413,11 @@ void tracee::_set(std::string reg_name, unsigned long value)
     }
 }
 
+// this will move one step further, and restore the previous opcode with 0xcc again for breakpoint reusing
 void tracee::_si()
 {
     RUN_CHECK
-    ptrace(PTRACE_SINGLESTEP, this->pid, 0, 0);
-    this->wait_n_check();
+    this->switch_n_step();
 }
 
 void tracee::_start()
@@ -455,4 +430,79 @@ bool tracee::wait_n_check()
 {
     waitpid(this->pid, &this->wait_status, 0);
     return !!WIFSTOPPED(this->wait_status);
+}
+
+// return: has switched or not
+bool tracee::switch_n_step()
+{
+    // get original code
+    long rip;
+    int byte_offset = get_rip(rip);
+    long code = get_code(rip);
+
+    unsigned char *pOpcode = ((unsigned char *)&code);
+
+    bool is_switched = false;
+
+    //  restore opcode if it's 0xcc
+    if (*pOpcode == 0xcc) {
+        // get the breakpoint by address
+        std::map<unsigned long, breakpoint *>::iterator iter;
+        iter = this->breakpoint_addr_map.find(rip);
+        if (iter == breakpoint_addr_map.end()) {
+            ddebug_msg("Breakpoint not found");
+            return is_switched;
+        }
+
+        breakpoint *pBp = iter->second;
+        *pOpcode = pBp->get_opcode();
+
+        // restore opcode
+        if (ptrace(PTRACE_POKETEXT, this->pid, rip, code) != 0) {
+            ddebug_msg("Failed to resotre code");
+            return is_switched;
+        }
+
+        is_switched = true;
+    }
+
+    // move one step further
+    ptrace(PTRACE_SINGLESTEP, this->pid, 0, 0);
+    this->wait_n_check();
+
+    // reuse break: replace previous step's opcode with 0xcc
+    if (is_switched) {
+        *pOpcode = 0xcc;
+        ptrace(PTRACE_POKETEXT, this->pid, rip, code); // rip is the previous rip
+    }
+
+    return is_switched;
+}
+
+int tracee::get_rip(long &rip)
+{
+    std::map<std::string, int>::iterator iter = register_map.find("rip");
+    int byte_offset = iter->second * sizeof(unsigned long long int);
+    rip = ptrace(PTRACE_PEEKUSER, this->pid, byte_offset, 0);
+
+    return byte_offset;
+}
+
+long tracee::get_code(long addr)
+{
+    return ptrace(PTRACE_PEEKTEXT, this->pid, addr, 0);
+}
+
+// backword one byte if encountered 0xcc
+void tracee::backward()
+{
+    long rip;
+    int byte_offset = get_rip(rip);
+    long code = get_code(rip);
+
+    unsigned char *pOpcode = ((unsigned char *)&code);
+    if (*pOpcode = 0xcc) {
+        if (ptrace(PTRACE_POKEUSER, this->pid, byte_offset, rip - 1) != 0)
+            ddebug_msg("Failed to backward");
+    }
 }
