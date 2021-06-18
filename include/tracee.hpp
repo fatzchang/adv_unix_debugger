@@ -31,12 +31,11 @@ class tracee {
         std::map<int, breakpoint *> breakpoint_index_map; // (address, original_byte)
 
         // command handler
-        void _break(unsigned long addr); //
-        void _cont(); //
-        void _delete(int breakpoint_id); //
-        void _disasm(unsigned long addr); //
-        // void _dump(unsigned long addr); 
-        void _dump(unsigned long addr, int length); //
+        void _break(unsigned long addr);
+        void _cont();
+        void _delete(int breakpoint_id);
+        void _disasm(unsigned long addr);
+        void _dump(unsigned long addr);
         void _exit();
         void _get(std::string reg_name);
         void _getregs();

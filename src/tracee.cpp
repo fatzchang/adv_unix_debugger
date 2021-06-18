@@ -120,22 +120,26 @@ void tracee::interact()
         }
         case DISASM:
         {
-            std::string addr_str = this->args.at(0);
-            unsigned long addr = str_to_ul(addr_str);
-            this->_disasm(addr);
+            if (this->args.size() > 0) {
+                std::string addr_str = this->args.at(0);
+                unsigned long addr = str_to_ul(addr_str);
+                this->_disasm(addr);
+            } else {
+                ddebug_msg("no addr given.");
+            }
+
             break;
         }
         case DUMP:
         {
-            std::string addr_str = this->args.at(0);
-            unsigned long addr = str_to_ul(addr_str);
-            int len = 0;
-            if (this->args.size() >= 2) {
-                std::string len_str = this->args.at(1);
-                std::stoi(len_str);
+            if (this->args.size() > 0) {
+                std::string addr_str = this->args.at(0);
+                unsigned long addr = str_to_ul(addr_str);
+                this->_dump(addr);
+            } else {
+                ddebug_msg("no addr given.");
             }
 
-            this->_dump(addr, len);
             break;
         } 
         case EXIT:
@@ -285,9 +289,43 @@ void tracee::_disasm(unsigned long addr)
     RUN_CHECK
 }
 
-void tracee::_dump(unsigned long addr, int length)
+// TODO: ignore out of range
+void tracee::_dump(unsigned long addr)
 {
     RUN_CHECK
+    int long_size = sizeof(long);
+    std::cout << std::right << std::hex << std::setfill('0');
+    for (int i = 0; i < 5; i++) {
+        std::cout << std::setw(6) << (addr + i * 16) << ": ";
+        // display two words a line
+        for (int j = 0; j < 2; j++) {
+            long code = get_code(addr + i * 16 + j * 8);
+            // down to character level
+            for (int k = 0; k < long_size; k++) {
+                std::cout << std::hex << std::setw(2) << (int)(((unsigned char *)&code)[k]) << " ";
+            }
+        }
+
+        // // display character if printable
+        std::cout << "  | ";
+
+        for (int j = 0; j < 2; j++) {
+            long code = get_code(addr + i * 16 + j * 8);
+            // down to character level
+            for (int k = 0; k < long_size; k++) {
+                if (isprint(((char *)&code)[k])) {
+                    std::cout << ((char *)&code)[k];
+                } else {
+                    std::cout << ".";
+                }
+            }
+        }
+
+        std::cout << " |";
+        std::cout << std::endl;
+    }
+    
+    std::cout << std::dec;
 }
 
 void tracee::_get(std::string reg_name)
@@ -424,6 +462,9 @@ void tracee::_start()
 {
     LOAD_CHECK
     this->is_running = true;
+    std::stringstream msg;
+    msg << "pid " << this->pid;
+    ddebug_msg(msg.str());
 }
 
 bool tracee::wait_n_check()
