@@ -26,6 +26,11 @@ int main(int argc, char *argv[])
         if (program.parse(line)) {
             program.interact();
         }
+#if DEBUG == 1
+        else {
+            std::cout << line << std::endl;
+        }
+#endif
     }
 
     

@@ -1,5 +1,6 @@
 EXEC	= hw4
 CPP		= g++
+FLAGS	= -DDEBUG=1
 
 INCL_DIR	= include
 SRC_DIR		= src
@@ -14,7 +15,7 @@ all: $(EXEC)
 
 
 $(EXEC): $(SRCS) $(INCLS)
-	$(CPP) -o $(EXEC) -I$(INCL_DIR) $(SRCS)
+	$(CPP) -o $(EXEC) -I$(INCL_DIR) $(FLAGS) $(SRCS)
 
 .PHONY: clean
 clean:
