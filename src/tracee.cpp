@@ -270,6 +270,7 @@ void tracee::_delete(int breakpoint_id)
     // restore original code
     long code = ptrace(PTRACE_PEEKTEXT, this->pid, addr, 0);
     ((unsigned char *)&code)[0] = pBp->get_opcode();
+    ptrace(PTRACE_POKETEXT, this->pid, addr, code);
 
     // delete  and free breakpoint
     this->breakpoint_addr_map.erase(addr);
@@ -643,7 +644,6 @@ std::string tracee::breakpoint_msg()
         breakpoint *pBp = iter->second;
         *pOpcode = pBp->get_opcode();
         
-        msg << "breakpoint @ ";
 
         csh handle;
         cs_insn *insn;
@@ -652,6 +652,7 @@ std::string tracee::breakpoint_msg()
         if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK) {
             return msg.str();
         }
+        msg << "breakpoint @ ";
 
         count = cs_disasm(handle, (uint8_t *)&code, sizeof(code)-1, rip, 1, &insn);
         if (count > 0) {
