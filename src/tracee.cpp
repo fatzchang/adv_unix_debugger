@@ -127,7 +127,7 @@ void tracee::interact()
                 unsigned long addr = str_to_ul(addr_str);
                 this->_disasm(addr);
             } else {
-                ddebug_msg("no addr given.");
+                ddebug_msg("no addr is given.");
             }
 
             break;
@@ -139,7 +139,7 @@ void tracee::interact()
                 unsigned long addr = str_to_ul(addr_str);
                 this->_dump(addr);
             } else {
-                ddebug_msg("no addr given.");
+                ddebug_msg("no addr is given.");
             }
 
             break;
@@ -246,13 +246,9 @@ void tracee::_cont()
     ptrace(PTRACE_CONT, this->pid, 0, 0);
     if (this->wait_n_check()) {
         this->backward();
-    } else {
-        this->is_loaded = false;
-        this->is_running = false;
-        ddebug_msg("Program exited");
+        std::string msg = this->breakpoint_msg();
+        std::cout << msg << std::endl;
     }
-
-
 }
 
 void tracee::_delete(int breakpoint_id)
@@ -293,6 +289,22 @@ void tracee::_disasm(unsigned long addr)
     for (int i = 0; i < 10; i++) {
         unsigned long target_addr = (addr + i * 8);
         code_segment[i] = this->get_code(target_addr);
+
+        // disasm should show the original instruction, thus replace all 0xcc with original opcode
+        for (int j = 0; j < sizeof(long); j++) {
+            unsigned char *code_byte = &((unsigned char *)&code_segment[i])[j];
+            if (*code_byte == 0xcc) {
+                std::map<unsigned long, breakpoint *>::iterator iter;
+                iter = this->breakpoint_addr_map.find(addr + i * 8 + j);
+                if (iter == breakpoint_addr_map.end()) {
+                    ddebug_msg("Breakpoint not found");
+                    continue;
+                }
+
+                breakpoint *pBp = iter->second;
+                *code_byte = pBp->get_opcode();
+            }
+        }
     }
 
     csh handle;
@@ -337,7 +349,7 @@ void tracee::_dump(unsigned long addr)
         std::cout << std::setw(6) << (addr + i * 16) << ": ";
         // display two words a line
         for (int j = 0; j < 2; j++) {
-            long code = get_code(addr + i * 16 + j * 8);
+            long code = this->get_code(addr + i * 16 + j * 8);
             // down to character level
             for (int k = 0; k < long_size; k++) {
                 std::cout << std::hex << std::setw(2) << (int)(((unsigned char *)&code)[k]) << " ";
@@ -463,9 +475,10 @@ void tracee::_run()
     LOAD_CHECK
     if (this->is_running) {
         ddebug_msg("Program is already running");
+    } else {
+        this->_start();
     }
     
-    this->is_running = true;
     this->_cont();
 }
 
@@ -504,6 +517,9 @@ void tracee::_si()
 {
     RUN_CHECK
     this->switch_n_step();
+
+    std::string msg = this->breakpoint_msg();
+    std::cout << msg << std::endl;
 }
 
 void tracee::_start()
@@ -518,6 +534,16 @@ void tracee::_start()
 bool tracee::wait_n_check()
 {
     waitpid(this->pid, &this->wait_status, 0);
+    if (WIFEXITED(this->wait_status)) {
+        int exit_code = WEXITSTATUS(this->wait_status);
+        std::stringstream msg;
+        msg << "child process " << this->pid << " terminiated normally (code " << exit_code << ")";
+        ddebug_msg(msg.str());
+
+        this->is_loaded = false;
+        this->is_running = false;
+    };
+
     return !!WIFSTOPPED(this->wait_status);
 }
 
@@ -594,4 +620,61 @@ void tracee::backward()
         if (ptrace(PTRACE_POKEUSER, this->pid, byte_offset, rip - 1) != 0)
             ddebug_msg("Failed to backward");
     }
+}
+
+std::string tracee::breakpoint_msg()
+{
+    long rip;
+    this->get_rip(rip);
+    long code = get_code(rip);
+    std::stringstream msg;
+
+    unsigned char *pOpcode = ((unsigned char *)&code);
+
+    // show breakpoint message
+    if (*pOpcode == 0xcc) {
+        std::map<unsigned long, breakpoint *>::iterator iter;
+        iter = this->breakpoint_addr_map.find(rip);
+        if (iter == breakpoint_addr_map.end()) {
+            ddebug_msg("Breakpoint not found");
+            return msg.str();
+        }
+
+        breakpoint *pBp = iter->second;
+        *pOpcode = pBp->get_opcode();
+        
+        msg << "breakpoint @ ";
+
+        csh handle;
+        cs_insn *insn;
+        size_t count;
+        
+        if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK) {
+            return msg.str();
+        }
+
+        count = cs_disasm(handle, (uint8_t *)&code, sizeof(code)-1, rip, 1, &insn);
+        if (count > 0) {
+            size_t j;
+            msg << std::hex;
+            for (j = 0; j < count; j++) {
+                msg << std::setw(12) << std::right << insn[j].address << ": ";
+                std::stringstream bytes_str;
+                for (int k = 0; k < insn[j].size; k++) {
+                    bytes_str << std::setw(2) << std::right << std::setfill('0') << std::hex;
+                    bytes_str << (unsigned int)insn[j].bytes[k] << " " << std::setfill(' ');
+                }
+
+                msg << std::setw(23) << std::left << bytes_str.str();
+                msg << std::setw(6) << std::left << insn[j].mnemonic << " " << insn[j].op_str;
+            }
+
+            cs_free(insn, count);
+        } else
+            printf("ERROR: Failed to disassemble given code!\n");
+
+        cs_close(&handle);
+    }
+
+    return msg.str();
 }

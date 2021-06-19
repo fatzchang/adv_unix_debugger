@@ -54,6 +54,7 @@ class tracee {
         int get_rip(long &rip);
         long get_code(long addr);
         void backward();
+        std::string breakpoint_msg();
 };
 
 
