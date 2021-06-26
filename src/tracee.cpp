@@ -356,6 +356,10 @@ void tracee::_disasm(unsigned long addr)
 		size_t j;
         std::cout << std::hex;
 		for (j = 0; j < count; j++) {
+            if (insn[j].address >= (this->entry_point + this->text_section_size)) {
+                break;
+            }
+
             std::cout << std::setw(6) << std::right << std::setfill('0') << insn[j].address << ": " << std::setfill(' ');
             std::stringstream bytes_str;
             for (int k = 0; k < insn[j].size; k++) {
@@ -375,7 +379,6 @@ void tracee::_disasm(unsigned long addr)
 	cs_close(&handle);
 }
 
-// TODO: ignore out of range
 void tracee::_dump(unsigned long addr)
 {
     RUN_CHECK
