@@ -8,6 +8,11 @@
 #include <sys/wait.h>
 #include <sys/user.h>
 #include <capstone/capstone.h>
+#include <elf.h>
+#include <string.h>
+
+
+
 
 #include "tracee.hpp"
 #include "utils.hpp"
@@ -44,28 +49,58 @@ std::map<std::string, int> register_map = {
 
 bool tracee::load(std::string path)
 {
-    if ((this->pid = fork()) < 0) {
-        return false;
-    } else if (this->pid == 0) {
-        // child
-        if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) errquit("traceme");
-        execlp(path.c_str(), path.c_str(), NULL);
-        errquit("execlp");
+    this->path = path;
+
+    std::fstream file;
+    char elf_header_buffer[64] = { 0 };
+
+    // read elf header
+    file.open(path, std::ios::in);
+    file.read(elf_header_buffer, 64);
+
+    Elf64_Ehdr elf_header = *(Elf64_Ehdr *)elf_header_buffer;
+    this->entry_point = elf_header.e_entry;
+    unsigned long section_table_offset = elf_header.e_shoff;
+    unsigned int section_header_table_size = elf_header.e_shentsize * elf_header.e_shnum;
+
+    // read section header
+    char *section_header_buffer = (char *)malloc(section_header_table_size);
+    file.seekg(section_table_offset, std::ios_base::beg);
+    file.read(section_header_buffer, section_header_table_size);
+    
+    Elf64_Shdr *section_header = (Elf64_Shdr *)section_header_buffer;
+
+    // load strtable
+    Elf64_Shdr *strtable_entry = section_header + elf_header.e_shstrndx;
+    unsigned long strtable_offset = strtable_entry->sh_offset;
+    unsigned long strtable_size = strtable_entry->sh_size;
+    char *strtable = (char *)malloc(strtable_size);
+    file.seekg(strtable_offset, std::ios_base::beg);
+    file.read(strtable, strtable_size);
+    strtable += 1; // first byte is null
+
+    int text_section_index = 0;    
+    for (int i = 0; i < elf_header.e_shnum; i++) {
+        std::string section_name = (strtable + (section_header + i)->sh_name);
+        if (section_name == "text") {
+            text_section_index = i;
+        }
     }
 
-    if (waitpid(pid, &this->wait_status, 0) < 0) return false;
-    if (!WIFSTOPPED(this->wait_status)) return false;
-    ptrace(PTRACE_SETOPTIONS, this->pid, 0, PTRACE_O_EXITKILL);
+    this->text_section_size = (section_header + text_section_index)->sh_size;
 
-    struct user_regs_struct regs;
-    // get rip
-    if (ptrace(PTRACE_GETREGS, this->pid, 0, &regs) != 0) return false;
+    free(section_header_buffer);
+    free(strtable - 1);
+    file.close();
 
+    // // set loaded
     this->is_loaded = true;
 
     std::stringstream msg;
-    msg << "Program '" << path << "' loaded. entry point 0x" << std::hex << regs.rip;
+    msg << "Program '" << path << "' loaded. entry point 0x" << std::hex << this->entry_point;
+    // std::cout << std::hex << (this->entry_point + this->text_section_size) << std::endl;
     ddebug_msg(msg.str());
+
     return true;
 }
 
@@ -526,6 +561,26 @@ void tracee::_si()
 void tracee::_start()
 {
     LOAD_CHECK
+    if (this->is_running) {
+        kill(this->pid, SIGKILL);
+    }
+    
+    this->clear_breakpoints();
+
+    if ((this->pid = fork()) < 0) {
+        ddebug_msg("Failed to fork tracee");
+        return;
+    } else if (this->pid == 0) {
+        // child
+        if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) errquit("traceme");
+        execlp(this->path.c_str(), this->path.c_str(), NULL);
+        errquit("execlp");
+    }
+
+    if (waitpid(this->pid, &this->wait_status, 0) < 0) return;
+    if (!WIFSTOPPED(this->wait_status)) return;
+    ptrace(PTRACE_SETOPTIONS, this->pid, 0, PTRACE_O_EXITKILL);
+
     this->is_running = true;
     std::stringstream msg;
     msg << "pid " << this->pid;
@@ -538,10 +593,9 @@ bool tracee::wait_n_check()
     if (WIFEXITED(this->wait_status)) {
         int exit_code = WEXITSTATUS(this->wait_status);
         std::stringstream msg;
-        msg << "child process " << this->pid << " terminiated normally (code " << exit_code << ")";
+        msg << "child process " << this->pid << " terminated normally (code " << exit_code << ")";
         ddebug_msg(msg.str());
 
-        this->is_loaded = false;
         this->is_running = false;
     };
 
@@ -678,4 +732,20 @@ std::string tracee::breakpoint_msg()
     }
 
     return msg.str();
+}
+
+
+void tracee::clear_breakpoints()
+{
+    std::map<unsigned long, breakpoint *>::iterator iter;
+    for (iter = this->breakpoint_addr_map.begin(); iter != this->breakpoint_addr_map.end(); iter++)
+    {
+        breakpoint *pBp = iter->second;
+        delete pBp;
+    }
+
+
+    this->breakpoint_addr_map.clear();
+    this->breakpoint_index_map.clear();
+
 }

@@ -22,8 +22,11 @@ class tracee {
         void interact();
     private:
         pid_t pid;
+        std::string path;
         int wait_status;
         std::vector<std::string> args;
+        unsigned long entry_point;
+        unsigned long text_section_size;
         bool is_loaded = false;
         bool is_running = false;
         enum Command command;
@@ -55,6 +58,7 @@ class tracee {
         long get_code(long addr);
         void backward();
         std::string breakpoint_msg();
+        void clear_breakpoints();
 };
 
 
